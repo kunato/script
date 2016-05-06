@@ -15,8 +15,8 @@ static void help()
 }       
 
 Mat DrawCorrespondences(const Mat& img1, const vector<Point2f>& features1, const Mat& img2,
-                        const vector<Point2f>& features2,int from,int to);
-
+                        const vector<Point2f>& features2,int from,int to,bool draw_border);
+Mat DrawOverlay(Mat img1,Mat     img2);
 void showFinal(Mat src1,Mat src2)
 {
     //src2 = pano 
@@ -102,13 +102,13 @@ int main(int argc, char** argv)
         fscanf(mFile, "[%lf %lf %lf]\n",&tmp[i*3],&tmp[i*3+1],&tmp[i*3+2]);
         std::cout << tmp[i*3] << "," << tmp[i*3+1] <<","<<tmp[i*3+2] << endl;
     }
-
+    tmp[2]*=1080/5;
+    tmp[5]*=1920/5;
     Mat homography(3,3,CV_64F,tmp);
     Mat rott(4,4,CV_64F,rot);
     for(int i = 0; i < keypoints1.size();i++){
         cout << keypoints1[i] << "," << keypoints2[i] << endl;
     }
-    cout << "P4F" << endl;
 
 
     //printf("Reading the images...\n");
@@ -119,19 +119,19 @@ int main(int argc, char** argv)
     Mat full_img2 = imread(img2_name, CV_LOAD_IMAGE_GRAYSCALE);
     Mat resize_tmp;
     Mat gl_img = imread(gl_img_name, CV_LOAD_IMAGE_GRAYSCALE);
-    resize(full_img1,resize_tmp,Size(),1.0,1.0);
+    resize(full_img1,resize_tmp,Size(),1,1);
     img1 = resize_tmp;
     resize(full_img2,resize_tmp,Size(),0.2,0.2);
     img2 = resize_tmp;
     Mat img3(img1.rows,img1.cols,CV_8UC3);
     Mat warped;
-    Mat H = findHomography(keypoints1,keypoints2,CV_RANSAC);
+    // Mat H = findHomography(keypoints1,keypoints2,CV_RANSAC);
 
     // cout <<"H" << endl << H << endl;
     // cout <<"Homography" << endl << homography << endl;
-    warpPerspective(full_img1,img3,H,full_img2.size());
+    warpPerspective(img1,img3,homography,full_img2.size(),WARP_INVERSE_MAP);
     
-    Mat img_corr = DrawCorrespondences(img1, keypoints1, img2, keypoints2,0,1);
+    // Mat img_corr = DrawCorrespondences(img1, keypoints1, img2, keypoints2,0,1);
     Mat small_img;
     for(int i = 0 ;i < warpPoint.size();i++){
 
@@ -148,7 +148,7 @@ int main(int argc, char** argv)
     double width = gl_img_small.cols;
     cout << "projPoint" << endl;
     while(fscanf(glprojFile,"(%lf %lf) (%lf %lf)\n",&x1,&y1,&x2,&y2)==4){
-        Point2f p(x1*0.2,height-y1*0.2);
+        Point2f p(x1*0.2,y1*0.2);
         Point2f p2(x2*0.2,y2*0.2);
         projPoint.push_back(p);
         projOrigPoint.push_back(p2);
@@ -157,30 +157,53 @@ int main(int argc, char** argv)
     // Mat tt;
     // flip(gl_img_small,tt,0);
     // gl_img_small = tt;
-    cout << "GL Point Size : " << projPoint.size() <<  endl;
-    Mat proj_corr = DrawCorrespondences(gl_img_small,projPoint,img2,projOrigPoint,0,-1);
-
+    Mat proj_corr = DrawCorrespondences(gl_img_small,projPoint,img1,projOrigPoint,0,-1,false);
+    Mat overlay = DrawOverlay(gl_img_small,img3);
+    imshow("overlay",overlay);
+    Mat connected_corr = DrawCorrespondences(gl_img_small,projPoint,img3,projOrigPoint,0,0,true);
     for(int i = 0; i < projPoint.size() ;i++){
         circle(gl_img_small, projPoint[i],3 , Scalar(255));
         cout << "write :" <<projPoint[i] << endl;
     }
     resize(proj_corr,proj_small,Size(),1,1);
     imshow("proj",proj_small);
+    imshow("warpped",connected_corr);   
     // imshow("gl_img",gl_img_small);
     cout << img2.cols << "," << img2.rows << endl;
     // imshow("warpPoint",img2);
-    resize(img_corr,small_img,Size(),0.2,0.2);
+    // resize(img_corr,small_img,Size(),0.2,0.2);
     resize(img3,warped,Size(),0.2,0.2);
-    imshow("correspondences", img_corr);
+    // imshow("correspondences", img_corr);
     // imshow("warp", warped);
     showFinal(img3,full_img2);
-    imwrite("correspondences.jpg",img_corr);
+    // imwrite("correspondences.jpg",img_corr);
     cout << "FINISH" << endl;
     waitKey(0);
 }
+Mat DrawOverlay(Mat img1,Mat img2){
+    Mat mask,mask_inv,dst;
+    Mat img3;
+    cout <<"1"<<endl;
+    threshold( img1, mask, 1, 2555555,0 );
+
+    cout <<"1"<<endl;
+    bitwise_not(mask,mask_inv);
+    cout <<"1"<<endl;
+    img2 = img2(Rect(0,0,img1.cols,img1.rows));
+    bitwise_and(img2,mask_inv,img3);
+
+
+    // imshow("mask_inv",img3);
+    cout <<"1"<<endl;
+    img3 = img3(Rect(0,0,img1.cols,img1.rows));
+    add(img1,img3,dst);
+
+    cout <<"1"<<endl;
+    return dst;
+}
 
 Mat DrawCorrespondences(const Mat& img1, const vector<Point2f>& features1, const Mat& img2,
-                        const vector<Point2f>& features2,int from,int to)
+                        const vector<Point2f>& features2,int from,int to,bool draw_border)
 {
     if(to == -1){
         to = features1.size();
@@ -205,6 +228,14 @@ Mat DrawCorrespondences(const Mat& img1, const vector<Point2f>& features1, const
         circle(img_corr, pt, 3, Scalar(0, 0, 255));
         line(img_corr, features1[i], pt, Scalar(0, 255, 0));
     }
-
+    if(draw_border){
+    //------
+    line(img_corr,Point(img1.cols,0),Point(img1.cols+1080/5,0),Scalar(0,255,0));
+    //|
+    //|
+    line(img_corr,Point(img1.cols,0),Point(img1.cols,1731/5),Scalar(0,255,0));
+    line(img_corr,Point(img1.cols+1080/5,0),Point(img1.cols+1080/5,1731/5),Scalar(0,255,0));
+    line(img_corr,Point(img1.cols,1731/5),Point(img1.cols+1080/5,1731/5),Scalar(0,255,0));
+    }
     return img_corr;
 }
