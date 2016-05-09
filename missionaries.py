@@ -1,54 +1,35 @@
 import copy;
 import sys;
 import math;
+import Queue;
 sys.setrecursionlimit(10000000)
 state = [3,3,1]
-OPEN = []
-OPEN.append(state)
+OPEN = Queue.PriorityQueue()
+OPEN.put((0,state,[]))
 out = 0
 step = 0
 log = []
 DONE = []
-values = []
-values.append([])
 for i in range(1,100):
 	log.append(math.pow(8,i))
 while True:
-	if(len(OPEN) == 0):
+	if(OPEN.empty()):
 		break
 	
-	ans = OPEN.pop(0)
-	value = values.pop(0)
+	ans = OPEN.get()
 	DONE.append(ans)
-	if(ans[0] == 0 and ans[1] == 0 and ans[2] == 0):
-		print (OPEN,ans)
-		print value
+	if(ans[1][0] == 0 and ans[1][1] == 0 and ans[1][2] == 0):
+		# print (OPEN,ans)
 		price = 0
-		for q in value:
-			if(q == 0):
-				price += 1+(2*0)
-			elif(q == 1):
-				price += 1+(2*1)
-			elif(q == 2):
-				price += 1+(2*1)
-			elif(q == 3):
-				price += 1+(2*2)
-			elif(q == 4):
-				price += 1+(2*0)
-			elif(q == 5):
-				price += 1+(2*1)
-			elif(q == 6):
-				price += 1+(2*3)
-			elif(q == 7):
-				price += 1+(2*0)
+		value = ans[2]
 		# break
-		print price
+		print ("Pass",value,ans[0])
 	
 	if(step in log):
 		print math.log(step,8)
 	for i in range(0,8):
-		value2 = copy.deepcopy(value)
-		state_temp = copy.deepcopy(ans)
+		value2 = copy.deepcopy(ans[2])
+		state_temp = copy.deepcopy(ans[1])
 		if(i == 0):
 			action = [0,1,1]
 		elif(i == 1):
@@ -80,9 +61,25 @@ while True:
 			continue
 		if(state_temp[1] > state_temp[0] and state_temp[1] != 3):
 			continue
-		if(state_temp in DONE):
-			continue
-		OPEN.append(state_temp)
-		values.append(value2)
+		price = 0;
+		if(i == 0):
+			price = 1+(2*0)
+		elif(i == 1):
+			price = 1+(2*1)
+		elif(i == 2):
+			price = 1+(2*1)
+		elif(i == 3):
+			price = 1+(2*2)
+		elif(i == 4):
+			price = 1+(2*0)
+		elif(i == 5):
+			price = 1+(2*1)
+		elif(i == 6):
+			price = 1+(2*3)
+		elif(i == 7):
+			price = 1+(2*0)
+		item = (ans[0]+price,state_temp,value2)
+		# print ("ITEM",item)
+		OPEN.put(item)
 	# print ("Open",OPEN)
 	# print ("Done",DONE)
